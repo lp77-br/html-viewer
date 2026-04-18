@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>HTML EDITOR</title>
+    <link rel="stylesheet" href="codemirror.min.css">
+    <link rel="stylesheet" href="dracula.min.css">
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-panel: #1e293b;
+            --border-color: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #3b82f6;
+            --danger: #ef4444;
+            --accent: #10b981;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body, html { min-height: 100dvh; width: 100%; font-family: 'Inter', -apple-system, sans-serif; background-color: var(--bg-dark); color: var(--text-main); display: flex; flex-direction: column; overflow-x: hidden; overflow-y: auto; }
+        body.layout-split { height: 100dvh; overflow: hidden; }
+        body.layout-split .workspace { flex: 1; min-height: 0; }
+        body.layout-split .panel { flex: 1; min-height: 0; height: auto; }
+        
+        header, .tabs-bar, .toolbar, .panel-header, footer, .modal {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        header { background-color: var(--bg-panel); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 100; }
+        .logo { font-size: 0.95rem; font-weight: 800; display: flex; align-items: center; gap: 6px; color: var(--text-main); text-decoration: none; flex-shrink: 0; }
+        .header-right { display: flex; gap: 12px; align-items: center; }
+        .history-controls { display: flex; gap: 6px; }
+        .icon-btn { background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .icon-btn:active { background: var(--border-color); transform: scale(0.95); }
+        .icon-btn.disabled { opacity: 0.2; pointer-events: none; }
+        
+        .tabs-bar { display: flex; background-color: var(--bg-dark); border-bottom: 1px solid var(--border-color); }
+        .tab-btn { flex: 1; padding: 12px; background: transparent; border: none; color: var(--text-muted); font-weight: 800; font-size: 0.8rem; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; text-transform: uppercase; }
+        .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background-color: var(--bg-panel); }
+        
+        .toolbar { background-color: var(--bg-dark); padding: 8px 12px; display: flex; gap: 8px; overflow-x: auto; border-bottom: 1px solid var(--border-color); scrollbar-width: none; }
+        .toolbar::-webkit-scrollbar { display: none; }
+        .tool-btn { background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 8px; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 6px; white-space: nowrap; text-transform: uppercase; cursor: pointer; }
+        .tool-btn.primary { background: var(--primary); border: none; }
+        .tool-btn.danger { color: #fca5a5; background: #450a0a; border-color: #7f1d1d; }
+        
+        .workspace { display: flex; flex-direction: column; }
+        .panel { display: flex; flex-direction: column; height: 50dvh; position: relative; }
+        .panel-header { background: var(--bg-panel); font-size: 0.65rem; color: var(--text-muted); padding: 6px 15px; text-transform: uppercase; font-weight: 800; border-bottom: 1px solid var(--border-color); border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .editor-container { display: none; flex: 1; height: 100%; flex-direction: column; }
+        .editor-container.active { display: flex; }
+        .fullscreen-trigger { background: transparent; border: none; color: var(--primary); font-weight: 800; font-size: 0.7rem; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+        
+        .CodeMirror { flex: 1; height: 100%; font-size: 13px; background: #1a1b26 !important; }
+        .preview-wrapper { flex: 1; background: #fff; position: relative; }
+        iframe { width: 100%; height: 100%; border: none; position: absolute; }
+        @media (orientation: landscape) { .workspace { flex-direction: row; } .panel { height: auto; flex: 1; border-right: 1px solid var(--border-color); } }
+        
+        footer { background: var(--bg-panel); padding: 15px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        footer button, footer a { background: none; border: none; color: var(--text-muted); text-decoration: none; font-size: 0.7rem; font-weight: 700; cursor: pointer; }
+        footer .madeby { color: var(--text-main); letter-spacing: 1px; font-weight: 800; font-size: 0.75rem; }
+        
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: none; justify-content: center; align-items: center; z-index: 10000; padding: 20px; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 16px; width: 100%; max-width: 400px; padding: 25px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .modal h3 { margin-bottom: 12px; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; }
+        .modal p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 20px; line-height: 1.5; max-height: 50vh; overflow-y: auto; padding-right: 5px; }
+        .modal p::-webkit-scrollbar { width: 4px; }
+        .modal p::-webkit-scrollbar-track { background: transparent; }
+        .modal p::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+        .modal input { width: 100%; background: var(--bg-dark); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; color: #fff; margin-bottom: 20px; outline: none; -webkit-user-select: auto; user-select: auto; }
+        .modal-actions { display: flex; flex-direction: column; gap: 10px; }
+        .modal-actions button { width: 100%; padding: 14px; border-radius: 10px; border: none; font-weight: 800; cursor: pointer; font-size: 0.8rem; text-transform: uppercase; }
+        .btn-confirm { background: var(--primary); color: #fff; }
+        .btn-cancel { background: var(--bg-dark); color: var(--text-muted); border: 1px solid var(--border-color); }
+        .btn-link { background: var(--bg-dark); color: var(--primary); border: 1px solid var(--border-color); padding: 14px; border-radius: 10px; text-align: center; text-decoration: none; font-weight: 800; font-size: 0.8rem; text-transform: uppercase; }
+        
+        .fs-only { display: none; }
+        #preview-panel:-webkit-full-screen .no-fs { display: none; }
+        #preview-panel:-webkit-full-screen .fs-only { display: flex; gap: 10px; width: 100%; justify-content: flex-end; position: absolute; z-index: 9999; top: 10px; right: 10px;}
+        #preview-panel:-webkit-full-screen .panel-header { display: none !important; }
+        
+        #preview-panel:fullscreen .no-fs { display: none; }
+        #preview-panel:fullscreen .fs-only { display: flex; gap: 10px; width: 100%; justify-content: flex-end; position: absolute; z-index: 9999; top: 10px; right: 10px;}
+        #preview-panel:fullscreen .panel-header { display: none !important; }
+        
+        .fs-btn { background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.1); color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); cursor: pointer;}
+        .fs-btn.hide-ui-btn { color: var(--text-main); }
+        .fs-btn.close-btn { color: var(--danger); }
+        
+        .hide-ui .fs-only { display: none !important; }
+    </style>
+</head>
+<body class="layout-split">
+    <header id="main-header">
+        <div class="logo">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--primary)"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
+            HTML EDITOR
+        </div>
+        <div class="header-right">
+            <div class="history-controls">
+                <button id="undo-btn" class="icon-btn disabled"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></button>
+                <button id="redo-btn" class="icon-btn disabled"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+            </div>
+            <button id="toggle-layout" class="icon-btn">
+                <svg id="icon-free" style="display:none" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
+                <svg id="icon-split" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <div class="tabs-bar">
+        <button class="tab-btn active" id="tab-html">HTML</button>
+        <button class="tab-btn" id="tab-css">CSS</button>
+        <button class="tab-btn" id="tab-js">JS</button>
+    </div>
+
+    <div class="toolbar" id="main-toolbar">
+        <button id="btn-upload" class="tool-btn">Abrir Arquivo</button>
+        <button id="btn-url" class="tool-btn">Importar URL</button>
+        <button id="btn-format" class="tool-btn primary">Formatar</button>
+        <button id="btn-copy" class="tool-btn">Copiar</button>
+        <button id="btn-clear" class="tool-btn danger">Limpar</button>
+    </div>
+
+    <input type="file" id="file-input" style="display:none" accept=".html,.htm,.txt,.cjs,.htmls,.js,.css">
+
+    <main class="workspace">
+        <section class="panel">
+            <div class="panel-header" id="current-editor-title">Código HTML</div>
+            <div class="editor-container active" id="wrap-html"><textarea id="editor-html"></textarea></div>
+            <div class="editor-container" id="wrap-css"><textarea id="editor-css"></textarea></div>
+            <div class="editor-container" id="wrap-js"><textarea id="editor-js"></textarea></div>
+        </section>
+
+        <section class="panel" id="preview-panel">
+            <div class="fs-only">
+                <button id="fs-hide" class="fs-btn hide-ui-btn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="18 15 12 9 6 15"/></svg>
+                </button>
+                <button id="fs-close" class="fs-btn close-btn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="panel-header" id="preview-header">
+                <span class="no-fs">Preview</span>
+                <button class="fullscreen-trigger no-fs" id="btn-fullscreen">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                    TELA CHEIA
+                </button>
+            </div>
+            <div class="preview-wrapper"><iframe id="preview-iframe" sandbox="allow-scripts allow-modals allow-pointer-lock allow-same-origin"></iframe></div>
+        </section>
+    </main>
+
+    <footer>
+        <button id="open-terms">Termos & Privacidade</button>
+        <button id="btn-madeby" class="madeby">OPEN SOURCE (GITHUB)</button>
+    </footer>
+
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal" id="modal-content">
+            <h3 id="modal-title"></h3>
+            <p id="modal-text"></p>
+            <div id="modal-input-container"></div>
+            <div class="modal-actions" id="modal-buttons"></div>
+        </div>
+    </div>
+
+    <script src="codemirror.min.js"></script>
+    <script src="xml.min.js"></script>
+    <script src="javascript.min.js"></script>
+    <script src="css.min.js"></script>
+    <script src="htmlmixed.min.js"></script>
+    <script src="beautify-html.min.js"></script>
+
+    <script>
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalTitle = document.getElementById('modal-title');
+        const modalText = document.getElementById('modal-text');
+        const modalButtons = document.getElementById('modal-buttons');
+        const modalInputContainer = document.getElementById('modal-input-container');
+
+        const termosTexto = `
+        <b>1. SOBRE O APLICATIVO</b><br>
+        O HTML Editor (Offline) é uma ferramenta de código aberto para testes de códigos web locais em tempo real.<br><br>
+        <b>2. SEGURANÇA E PRIVACIDADE</b><br>
+        Esta versão opera de forma 100% offline, sem permissões de rede. Todo o código digitado é salvo exclusivamente no LocalStorage do seu aparelho.<br><br>
+        <b>3. RESPONSABILIDADE</b><br>
+        O usuário é o único responsável pelo código executado no ambiente local. O aplicativo não garante a persistência dos dados caso o cache do sistema seja limpo.
+        `;
+
+        const privTexto = `
+        <b>POLÍTICA DE PRIVACIDADE</b><br><br>
+        <b>Isolamento Total:</b> Como esta versão não possui acesso à internet, garantimos que nenhum dado, código ou projeto seja transmitido ou acessado por terceiros.<br><br>
+        <b>Armazenamento Local:</b> Utilizamos apenas o LocalStorage do dispositivo para preservar o seu progresso entre as sessões.<br><br>
+        <b>Zero Telemetria:</b> Não coletamos estatísticas, análises de uso ou informações do dispositivo.
+        `;
+
+        function closeModal() { 
+            modalOverlay.classList.remove('active'); 
+            modalText.style.textAlign = "center";
+        }
+
+        function customAlert(title, text) {
+            modalTitle.innerText = title; 
+            modalText.innerHTML = text;
+            modalText.style.textAlign = "center";
+            modalInputContainer.innerHTML = '';
+            modalButtons.innerHTML = `<button class="btn-confirm" onclick="closeModal()">OK</button>`;
+            modalOverlay.classList.add('active');
+        }
+
+        function customConfirm(title, text, onConfirm) {
+            modalTitle.innerText = title; 
+            modalText.innerHTML = text; 
+            modalText.style.textAlign = "center";
+            modalInputContainer.innerHTML = '';
+            modalButtons.innerHTML = `<button class="btn-confirm" id="modal-confirm-btn">Acessar GitHub</button><button class="btn-cancel" onclick="closeModal()">Voltar</button>`;
+            modalOverlay.classList.add('active');
+            document.getElementById('modal-confirm-btn').onclick = () => { onConfirm(); closeModal(); };
+        }
+
+        function openExternal(url) {
+            modalTitle.innerText = "Abrir Link"; 
+            modalText.innerText = "Deseja sair do aplicativo para abrir o navegador?";
+            modalInputContainer.innerHTML = '';
+            modalButtons.innerHTML = `<button class="btn-confirm" id="modal-external-btn">Confirmar</button><button class="btn-cancel" onclick="closeModal()">Cancelar</button>`;
+            modalOverlay.classList.add('active');
+            document.getElementById('modal-external-btn').onclick = () => {
+                if (window.Android && window.Android.openUrl) {
+                    window.Android.openUrl(url);
+                } else {
+                    window.open(url, '_blank');
+                }
+                closeModal();
+            };
+        }
+
+        const editorHtml = CodeMirror.fromTextArea(document.getElementById("editor-html"), {
+            mode: "htmlmixed", theme: "dracula", lineNumbers: true, lineWrapping: true, autoCloseTags: true
+        });
+        const editorCss = CodeMirror.fromTextArea(document.getElementById("editor-css"), {
+            mode: "css", theme: "dracula", lineNumbers: true, lineWrapping: true, autoCloseTags: true
+        });
+        const editorJs = CodeMirror.fromTextArea(document.getElementById("editor-js"), {
+            mode: "javascript", theme: "dracula", lineNumbers: true, lineWrapping: true, autoCloseTags: true
+        });
+
+        let activeEditor = editorHtml;
+
+        document.getElementById("tab-html").onclick = () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.editor-container').forEach(c => c.classList.remove('active'));
+            document.getElementById("tab-html").classList.add('active');
+            document.getElementById("wrap-html").classList.add('active');
+            document.getElementById("current-editor-title").innerText = "Código HTML";
+            activeEditor = editorHtml;
+            setTimeout(() => activeEditor.refresh(), 10);
+            updateHistoryButtons();
+        };
+
+        document.getElementById("tab-css").onclick = () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.editor-container').forEach(c => c.classList.remove('active'));
+            document.getElementById("tab-css").classList.add('active');
+            document.getElementById("wrap-css").classList.add('active');
+            document.getElementById("current-editor-title").innerText = "Código CSS";
+            activeEditor = editorCss;
+            setTimeout(() => activeEditor.refresh(), 10);
+            updateHistoryButtons();
+        };
+
+        document.getElementById("tab-js").onclick = () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.editor-container').forEach(c => c.classList.remove('active'));
+            document.getElementById("tab-js").classList.add('active');
+            document.getElementById("wrap-js").classList.add('active');
+            document.getElementById("current-editor-title").innerText = "Código JS";
+            activeEditor = editorJs;
+            setTimeout(() => activeEditor.refresh(), 10);
+            updateHistoryButtons();
+        };
+
+        const previewFrame = document.getElementById("preview-iframe");
+        let timeout;
+
+        function updateHistoryButtons() {
+            document.getElementById('undo-btn').classList.toggle('disabled', activeEditor.historySize().undo === 0);
+            document.getElementById('redo-btn').classList.toggle('disabled', activeEditor.historySize().redo === 0);
+        }
+
+        function updatePreview() {
+            localStorage.setItem('html_code', editorHtml.getValue());
+            localStorage.setItem('css_code', editorCss.getValue());
+            localStorage.setItem('js_code', editorJs.getValue());
+
+            let html = editorHtml.getValue();
+            let css = editorCss.getValue();
+            let js = editorJs.getValue();
+            
+            if (!html.toLowerCase().includes('charset')) html = html.replace('<head>', '<head>\n<meta charset="utf-8">');
+            
+            let finalCode = html;
+            if (css) finalCode += "<style>\n" + css + "\n</style>";
+            if (js) finalCode += "<script>\n" + js + "\n<\/script>";
+
+            const doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+            doc.open(); doc.write(finalCode); doc.close();
+            updateHistoryButtons();
+        }
+
+        editorHtml.on("change", () => { clearTimeout(timeout); timeout = setTimeout(updatePreview, 400); });
+        editorCss.on("change", () => { clearTimeout(timeout); timeout = setTimeout(updatePreview, 400); });
+        editorJs.on("change", () => { clearTimeout(timeout); timeout = setTimeout(updatePreview, 400); });
+
+        document.getElementById('undo-btn').onclick = () => activeEditor.undo();
+        document.getElementById('redo-btn').onclick = () => activeEditor.redo();
+
+        document.getElementById("toggle-layout").onclick = () => {
+            const isSplit = document.body.classList.toggle("layout-split");
+            document.getElementById('icon-free').style.display = isSplit ? 'none' : 'block';
+            document.getElementById('icon-split').style.display = isSplit ? 'block' : 'none';
+            setTimeout(() => {
+                editorHtml.refresh();
+                editorCss.refresh();
+                editorJs.refresh();
+            }, 100);
+        };
+
+        const previewPanel = document.getElementById('preview-panel');
+        
+        document.getElementById('btn-fullscreen').onclick = () => {
+            if (previewPanel.requestFullscreen) previewPanel.requestFullscreen();
+            else if (previewPanel.webkitRequestFullscreen) previewPanel.webkitRequestFullscreen();
+        };
+
+        document.getElementById('fs-close').onclick = () => {
+            if (document.exitFullscreen) document.exitFullscreen();
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        };
+
+        document.getElementById('fs-hide').onclick = () => {
+            document.body.classList.toggle('hide-ui');
+        };
+
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) document.body.classList.remove('hide-ui');
+        });
+        document.addEventListener('webkitfullscreenchange', () => {
+            if (!document.webkitFullscreenElement) document.body.classList.remove('hide-ui');
+        });
+
+        document.getElementById('btn-upload').onclick = () => document.getElementById('file-input').click();
+        
+        document.getElementById('file-input').onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => { activeEditor.setValue(ev.target.result); };
+            reader.readAsText(file);
+        };
+
+        document.getElementById('btn-url').onclick = () => {
+            customConfirm(
+                "Versão Offline", 
+                "Esta versão é <b>100% offline</b> para garantir sua privacidade. A extração de URLs não está disponível sem acesso à rede.<br><br>Para usar o Web Extrator, acesse nosso projeto no GitHub.", 
+                () => {
+                    if (window.Android && window.Android.downloadExtractor) {
+                        window.Android.downloadExtractor();
+                    } else {
+                        window.open('https://github.com/lp77-br/html-viewer', '_blank');
+                    }
+                }
+            );
+        };
+
+        document.getElementById("btn-format").onclick = () => { activeEditor.setValue(html_beautify(activeEditor.getValue(), { indent_size: 2 })); };
+        
+        document.getElementById("btn-copy").onclick = () => {
+            const code = activeEditor.getValue();
+            navigator.clipboard.writeText(code);
+            if (window.Android && window.Android.copyToClipboard) window.Android.copyToClipboard(code);
+            customAlert("Sucesso", "Código copiado para a área de transferência!");
+        };
+
+        document.getElementById("btn-clear").onclick = () => { 
+            modalTitle.innerText = "Limpar Tudo"; 
+            modalText.innerText = "Tem certeza que deseja apagar todo o código atual?";
+            modalText.style.textAlign = "center";
+            modalInputContainer.innerHTML = '';
+            modalButtons.innerHTML = `<button class="btn-confirm" id="modal-clear-btn">Confirmar</button><button class="btn-cancel" onclick="closeModal()">Cancelar</button>`;
+            modalOverlay.classList.add('active');
+            document.getElementById('modal-clear-btn').onclick = () => { activeEditor.setValue(""); closeModal(); };
+        };
+
+        document.getElementById('open-terms').onclick = () => {
+            function showOptions() {
+                modalTitle.innerText = "Informações Legais"; 
+                modalText.innerText = "Escolha um dos documentos oficiais para visualizar:";
+                modalText.style.textAlign = "center";
+                modalInputContainer.innerHTML = '';
+                modalButtons.innerHTML = `
+                    <button class="btn-link" id="link-termos">Termos de Uso</button>
+                    <button class="btn-link" id="link-priv">Política de Privacidade</button>
+                    <button class="btn-cancel" onclick="closeModal()">Fechar</button>
+                `;
+                
+                document.getElementById('link-termos').onclick = () => { 
+                    modalTitle.innerText = "Termos de Uso";
+                    modalText.innerHTML = termosTexto;
+                    modalText.style.textAlign = "left";
+                    modalButtons.innerHTML = `<button class="btn-cancel" id="btn-voltar">Voltar</button>`;
+                    document.getElementById('btn-voltar').onclick = showOptions;
+                };
+
+                document.getElementById('link-priv').onclick = () => { 
+                    modalTitle.innerText = "Política de Privacidade";
+                    modalText.innerHTML = privTexto;
+                    modalText.style.textAlign = "left";
+                    modalButtons.innerHTML = `<button class="btn-cancel" id="btn-voltar">Voltar</button>`;
+                    document.getElementById('btn-voltar').onclick = showOptions;
+                };
+            }
+            showOptions();
+            modalOverlay.classList.add('active');
+        };
+
+        document.getElementById('btn-madeby').onclick = () => { openExternal('https://github.com/lp77-br/html-viewer'); };
+
+        window.onload = () => {
+            const savedHtml = localStorage.getItem('html_code');
+            const savedCss = localStorage.getItem('css_code');
+            const savedJs = localStorage.getItem('js_code');
+
+            if (savedHtml !== null) {
+                editorHtml.setValue(savedHtml);
+            } else {
+                editorHtml.setValue('<!DOCTYPE html>\n<html lang="pt-br">\n<head>\n  <meta charset="UTF-8">\n  <title>HTML Editor</title>\n</head>\n<body>\n  <center>\n    <br><br><br>\n    <hr width="30%">\n    <h1>Um simples editor de HTML</h1>\n    <hr width="30%">\n  </center>\n</body>\n</html>');
+            }
+            if (savedCss !== null) editorCss.setValue(savedCss);
+            if (savedJs !== null) editorJs.setValue(savedJs);
+        };
+    </script>
+</body>
+</html>
