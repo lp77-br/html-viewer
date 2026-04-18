@@ -1,7 +1,7 @@
 # 📱 HTML Viewer - LITE
 
 [![License](https://img.shields.io/badge/LICENSE-OBRIGATÓRIO--LER-orange?style=for-the-badge)](LICENSE)
-[![Download APK](https://img.shields.io/badge/DOWNLOAD-APK--TESTE-green?style=for-the-badge)](HTMLViewer_LITE_testkey.apk)
+[![Download APK](https://img.shields.io/badge/DOWNLOAD-APK--TESTE-green?style=for-the-badge)](HTMLViewer_LITE.apk)
 
 > [!IMPORTANT]
 > **TERMOS DE USO:** Ao utilizar, modificar ou distribuir este código, você declara estar ciente dos termos contidos na **[LICENSE](LICENSE)** deste projeto. A nós apoiamos o Open Source, desde que os créditos originais minimamente sejam mantidos.
