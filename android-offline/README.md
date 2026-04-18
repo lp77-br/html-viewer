@@ -18,6 +18,7 @@ A versão **OFFLINE** é a nossa ferramenta para desenvolvedores que buscam priv
 |:--- |:--- |
 | **Linguagem** | Java 1.8 + HTML5/CSS3/JS |
 | **Editor Base** | CodeMirror |
+| **Bibliotecas** | AppCompat & Design |
 | **Motor de Build** | D8 |
 | **Compatibilidade** | Android 5.0+ (API 21) |
 
@@ -28,8 +29,9 @@ Para reconstruir este projeto no **Sketchware Pro** ou **Android Studio**:
     * `index.html` (Interface principal).
     * `codemirror.min.js`, `xml.min.js`, `javascript.min.js`, `css.min.js`, `htmlmixed.min.js`, `beautify-html.min.js`.
     * `codemirror.min.css` e `dracula.min.css`.
-2.  **Configurações:** Ative `JavaScriptEnabled` e `DomStorageEnabled` na sua WebView, conforme o `MainActivity.java`.
-3.  **Permissões:** O manifesto não deve solicitar acesso à rede para manter a integridade da proposta offline.
+2.  **Bibliotecas:** Certifique-se de que as bibliotecas `AppCompat` e `Design` estão ativadas no seu ambiente de desenvolvimento.
+3.  **Configurações:** Ative `JavaScriptEnabled` e `DomStorageEnabled` na sua WebView, conforme o `MainActivity.java`.
+4.  **Permissões:** O manifesto não deve solicitar acesso à rede para manter a integridade da proposta offline.
 
 ## 📥 Download do APK
 O APK de demonstração está disponível no link abaixo:
